@@ -1,21 +1,26 @@
-"""The interface to the Groq API."""
+"""The interface to the Octo API."""
 
 import os
 
 from ..framework.provider_interface import ProviderInterface
 
+_OCTO_BASE_URL = "https://text.octoai.run/v1"
 
-class GroqInterface(ProviderInterface):
-    """Implements the ProviderInterface for interacting with Groq's APIs."""
+
+class OctoInterface(ProviderInterface):
+    """Implements the ProviderInterface for interacting with Octo's APIs."""
 
     def __init__(self):
-        """Set up the Groq client using the API key obtained from the user's environment."""
-        import groq
+        """Set up the Octo client using the API key obtained from the user's environment."""
+        from openai import OpenAI
 
-        self.groq_client = groq.Groq(api_key=os.getenv("GROQ_API_KEY"))
+        self.octo_client = OpenAI(
+            api_key=os.getenv("OCTO_API_KEY"),
+            base_url=_OCTO_BASE_URL,
+        )
 
     def chat_completion_create(self, messages=None, model=None, temperature=0):
-        """Request chat completions from the Groq API.
+        """Request chat completions from the Together API.
 
         Args:
         ----
@@ -28,7 +33,7 @@ class GroqInterface(ProviderInterface):
             The API response with the completion result.
 
         """
-        return self.groq_client.chat.completions.create(
+        return self.octo_client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=temperature,
