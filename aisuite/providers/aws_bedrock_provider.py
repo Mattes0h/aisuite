@@ -1,3 +1,5 @@
+import os
+
 import boto3
 from aisuite.provider import Provider, LLMError
 from aisuite.framework import ChatCompletionResponse
@@ -31,7 +33,10 @@ class AWSBedrockProvider(Provider):
             **config: Configuration options for the provider.
 
         """
-        self.client = boto3.client("bedrock-runtime", region_name="us-west-2")
+        self.region_name = config.get(
+            "region_name", os.getenv("AWS_REGION_NAME", "us-west-2")
+        )
+        self.client = boto3.client("bedrock-runtime", region_name=self.region_name)
         self.inference_parameters = [
             "maxTokens",
             "temperature",
@@ -51,7 +56,7 @@ class AWSBedrockProvider(Provider):
         # Any exception raised by Anthropic will be returned to the caller.
         # Maybe we should catch them and raise a custom LLMError.
         # https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html
-        system_message = None
+        system_message = []
         if messages[0]["role"] == "system":
             system_message = [{"text": messages[0]["content"]}]
             messages = messages[1:]

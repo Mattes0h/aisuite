@@ -1,9 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from mistralai.models.chat_completion import ChatMessage
-
-from aisuite.providers.mistral_interface import MistralInterface
+from aisuite.providers.mistral_provider import MistralProvider
 
 
 @pytest.fixture(autouse=True)
@@ -12,8 +10,8 @@ def set_api_key_env_var(monkeypatch):
     monkeypatch.setenv("MISTRAL_API_KEY", "test-api-key")
 
 
-def test_mistral_interface():
-    """High-level test that the interface is initialized and chat completions are requested successfully."""
+def test_mistral_provider():
+    """High-level test that the provider is initialized and chat completions are requested successfully."""
 
     user_greeting = "Hello!"
     message_history = [{"role": "user", "content": user_greeting}]
@@ -21,28 +19,23 @@ def test_mistral_interface():
     chosen_temperature = 0.75
     response_text_content = "mocked-text-response-from-model"
 
-    interface = MistralInterface()
+    provider = MistralProvider()
     mock_response = MagicMock()
     mock_response.choices = [MagicMock()]
     mock_response.choices[0].message = MagicMock()
     mock_response.choices[0].message.content = response_text_content
 
     with patch.object(
-        interface.mistral_client, "chat", return_value=mock_response
+        provider.client.chat, "complete", return_value=mock_response
     ) as mock_create:
-        response = interface.chat_completion_create(
+        response = provider.chat_completions_create(
             messages=message_history,
             model=selected_model,
             temperature=chosen_temperature,
         )
 
-        transformed_message_history = [
-            ChatMessage(role=message["role"], content=message["content"])
-            for message in message_history
-        ]
-
         mock_create.assert_called_with(
-            messages=transformed_message_history,
+            messages=message_history,
             model=selected_model,
             temperature=chosen_temperature,
         )

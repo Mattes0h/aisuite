@@ -1,15 +1,18 @@
-import os
-import vertexai
-from vertexai.generative_models import GenerativeModel, GenerationConfig, Content, Part
-from aisuite.provider import Provider
-from aisuite.framework import ChatCompletionResponse
+"""The interface to Google's Vertex AI."""
 
-# Define a constant for the default temperature value
+import os
+
+import vertexai
+from vertexai.generative_models import GenerativeModel, GenerationConfig
+
+from aisuite.framework import ProviderInterface, ChatCompletionResponse
+
+
 DEFAULT_TEMPERATURE = 0.7
 
 
-class GoogleProvider(Provider):
-    """Implements the Provider interface for interacting with Google's Vertex AI."""
+class GoogleProvider(ProviderInterface):
+    """Implements the ProviderInterface for interacting with Google's Vertex AI."""
 
     def __init__(self, **config):
         """Set up the Google AI client with a project ID."""
@@ -23,53 +26,56 @@ class GoogleProvider(Provider):
             raise EnvironmentError(
                 "Missing one or more required Google environment variables: "
                 "GOOGLE_PROJECT_ID, GOOGLE_REGION, GOOGLE_APPLICATION_CREDENTIALS. "
-                "Please refer to the setup guide."
+                "Please refer to the setup guide: /guides/google.md."
             )
 
-        # Initialize the Vertex AI client
         vertexai.init(project=self.project_id, location=self.location)
 
     def chat_completions_create(self, model, messages, **kwargs):
-        """
-        Request chat completions from the Google AI API.
+        """Request chat completions from the Google AI API.
 
         Args:
         ----
             model (str): Identifies the specific provider/model to use.
             messages (list of dict): A list of message objects in chat history.
-            kwargs (dict): Optional parameters such as temperature, max_tokens, etc.
+            kwargs (dict): Optional arguments for the Google AI API.
 
         Returns:
         -------
             The ChatCompletionResponse with the completion result.
+
         """
-        # Check if temperature is provided in kwargs, otherwise use default
+
+        # Set the temperature if provided, otherwise use the default
         temperature = kwargs.get("temperature", DEFAULT_TEMPERATURE)
 
-        # Transform OpenAI roles to Google roles
+        # Transform the roles in the messages
         transformed_messages = self.transform_roles(messages)
 
-        # Prepare the chat history excluding the last message
+        # Convert the messages to the format expected Google
         final_message_history = self.convert_openai_to_vertex_ai(
             transformed_messages[:-1]
         )
+
+        # Get the last message from the transformed messages
         last_message = transformed_messages[-1]["content"]
 
-        # Initialize the model with generation configuration
+        # Create the GenerativeModel with the specified model and generation configuration
         model = GenerativeModel(
-            model=model,
-            generation_config=GenerationConfig(temperature=temperature),
+            model, generation_config=GenerationConfig(temperature=temperature)
         )
 
-        # Start the chat session and send the last message
+        # Start a chat with the GenerativeModel and send the last message
         chat = model.start_chat(history=final_message_history)
         response = chat.send_message(last_message)
 
-        # Convert the Google AI response to OpenAI format
-        return self.convert_response_to_openai_format(response)
+        # Convert the response to the format expected by the OpenAI API
+        return self.normalize_response(response)
 
     def convert_openai_to_vertex_ai(self, messages):
         """Convert OpenAI messages to Google AI messages."""
+        from vertexai.generative_models import Content, Part
+
         history = []
         for message in messages:
             role = message["role"]
@@ -90,8 +96,8 @@ class GoogleProvider(Provider):
                 message["role"] = role
         return messages
 
-    def convert_response_to_openai_format(self, response):
-        """Convert Google AI response to OpenAI's ChatCompletionResponse format."""
+    def normalize_response(self, response):
+        """Normalize the response from Google AI to match OpenAI's response format."""
         openai_response = ChatCompletionResponse()
         openai_response.choices[0].message.content = (
             response.candidates[0].content.parts[0].text
